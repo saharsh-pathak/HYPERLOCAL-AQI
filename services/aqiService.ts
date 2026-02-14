@@ -1,5 +1,5 @@
 
-import { AQICategory, Reading, VerificationData, LocationData, ClusterData, ClusterConfidence } from '../types';
+import { AQICategory, Reading, VerificationData, LocationData, ClusterData, ClusterConfidence, ConfidenceTier } from '../types';
 import { NAQI_BREAKPOINTS } from '../constants';
 
 export const calculateAQI = (pm25: number): { aqi: number, category: AQICategory } => {
@@ -11,9 +11,6 @@ export const calculateAQI = (pm25: number): { aqi: number, category: AQICategory
   };
 };
 
-/**
- * General Cluster Metrics calculation for a group of sensors anchored to a ground truth.
- */
 export const calculateClusterMetrics = (
   sensors: LocationData[],
   groundTruthPM: number
@@ -39,7 +36,7 @@ export const calculateClusterMetrics = (
 
   activeSensors.forEach(s => {
     const deviation = Math.abs(s.currentReading.pm25 - avgPM25) / avgPM25;
-    const isAnomaly = deviation > 0.35; // Slightly relaxed threshold for multi-cluster
+    const isAnomaly = deviation > 0.5; // Threshold for cluster-wide warning
     if (isAnomaly) anomaliesFound = true;
     memberStatus[s.id] = { deviation, isAnomaly };
   });
@@ -50,8 +47,8 @@ export const calculateClusterMetrics = (
   const maxDev = activeSensors.length > 0 ? Math.max(...Object.values(memberStatus).map(v => v.deviation)) : 0;
   
   if (activeSensors.length < 2) confidence = 'Low';
-  else if (maxDev > 0.3) confidence = 'Low';
-  else if (maxDev > 0.15) confidence = 'Medium';
+  else if (maxDev > 0.4) confidence = 'Low';
+  else if (maxDev > 0.2) confidence = 'Medium';
 
   return {
     avgPM25,
@@ -60,25 +57,51 @@ export const calculateClusterMetrics = (
     activeSensors: activeSensors.length,
     calibrationFactor,
     memberStatus,
-    anchorName: '' // Set by caller
+    anchorName: '' 
   };
 };
 
 export const performTriangularVerification = (localPM: number, primaryRef: number, secondaryRef: number): VerificationData => {
-  const delta12 = Math.abs(localPM - primaryRef) / (primaryRef || 1);
-  const delta13 = Math.abs(localPM - secondaryRef) / (secondaryRef || 1);
-  const anomalyDetected = delta12 > 0.45 && delta13 > 0.45;
-  const isVerified = !anomalyDetected;
-  const confidence = isVerified ? (1 - (delta12 + delta13) / 2) * 100 : 15;
+  const diffP = Math.abs(localPM - primaryRef) / (primaryRef || 1);
+  const diffS = Math.abs(localPM - secondaryRef) / (secondaryRef || 1);
+  
+  let tier: ConfidenceTier = 'Low';
+  let score = 0;
+  let statusMessage = '';
+  let isHyperlocalEvent = false;
+
+  // Logic for Tiers
+  if (diffP <= 0.2 && diffS <= 0.2) {
+    tier = 'High';
+    score = Math.round(100 - ((diffP + diffS) / 2) * 100);
+    statusMessage = 'Verified Air Quality Truth';
+  } else if (diffP <= 0.5 || diffS <= 0.5) {
+    tier = 'Medium';
+    score = Math.round(79 - (Math.min(diffP, diffS) * 40));
+    
+    // Check if it's a hyperlocal spike (local reading higher than official stations)
+    if (localPM > primaryRef && localPM > secondaryRef) {
+      isHyperlocalEvent = true;
+      statusMessage = 'Localized Pollution Spike detected';
+    } else {
+      statusMessage = 'Moderate Spatial Variance';
+    }
+  } else {
+    tier = 'Low';
+    score = Math.round(Math.max(10, 49 - (Math.min(diffP, diffS) * 20)));
+    statusMessage = 'Sensor Drift or High Local Interference';
+  }
 
   return {
     leg1_local: localPM,
     leg2_primary_ref: primaryRef,
     leg3_secondary_ref: secondaryRef,
-    isVerified,
-    confidence: Math.max(5, Math.min(100, Math.round(confidence))),
-    anomalyDetected,
-    anomalyReason: anomalyDetected ? 'Abnormal localized spike detected. Reading deviates significantly from cluster peers.' : undefined
+    isVerified: tier !== 'Low',
+    confidence: score,
+    tier,
+    statusMessage,
+    isHyperlocalEvent,
+    anomalyDetected: tier === 'Low'
   };
 };
 

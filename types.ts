@@ -9,6 +9,7 @@ export enum AQICategory {
 }
 
 export type ClusterConfidence = 'High' | 'Medium' | 'Low';
+export type ConfidenceTier = 'High' | 'Medium' | 'Low';
 
 export interface ClusterData {
   avgPM25: number;
@@ -45,8 +46,11 @@ export interface VerificationData {
   leg3_secondary_ref: number;
   isVerified: boolean;
   confidence: number;
+  tier: ConfidenceTier;
+  statusMessage: string;
+  isHyperlocalEvent: boolean;
+  // Added anomalyDetected property to match the data returned by the verification service
   anomalyDetected: boolean;
-  anomalyReason?: string;
 }
 
 export interface LocationData {

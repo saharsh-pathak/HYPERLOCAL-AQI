@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { LocationData, AQICategory, ClusterData } from './types';
@@ -72,7 +73,7 @@ const App: React.FC = () => {
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
           const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
-            contents: `Location: ${selectedLocation.name}, Mayur Vihar. AQI: ${selectedLocation.currentReading.aqi}. Advise residents concisely.`
+            contents: `Location: ${selectedLocation.name}, Mayur Vihar. AQI: ${selectedLocation.currentReading.aqi}. Advise residents concisely based on trust tier: ${selectedLocation.verification?.tier}.`
           });
           setInsights(response.text || 'Air quality is within typical range.');
         } catch (e) {
@@ -89,7 +90,7 @@ const App: React.FC = () => {
     <div className="flex items-center justify-center min-h-screen bg-slate-50">
       <div className="flex flex-col items-center gap-4">
         <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-slate-600 font-black tracking-tight uppercase text-xs">Locking Enveloping Meshes...</p>
+        <p className="text-slate-600 font-black tracking-tight uppercase text-xs">Calibrating Trust Tiers...</p>
       </div>
     </div>
   );
@@ -106,11 +107,11 @@ const App: React.FC = () => {
             </div>
             <div>
               <h1 className="text-xl font-black text-slate-900 tracking-tighter uppercase">Mayur Vihar Mesh</h1>
-              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Enveloping Core-Surround Clusters</p>
+              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest text-blue-600">Dynamic Confidence Engine v3.1</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs font-bold text-blue-600 uppercase">{Object.keys(clusters).length} ENVELOPING MESHES LOCKED</span>
+            <span className="text-xs font-bold text-blue-600 uppercase">Trust Network: {Object.keys(clusters).length} Meshes Active</span>
           </div>
         </div>
       </header>
@@ -161,9 +162,9 @@ const App: React.FC = () => {
 
                 {activeCluster && !selectedLocation.isOfficial && <ClusterStats cluster={activeCluster} />}
 
-                <div className="bg-slate-50 rounded-2xl p-6 mb-8 border border-slate-100 italic text-sm text-slate-800 leading-relaxed">
-                  <span className="font-black text-blue-700 text-[10px] uppercase tracking-widest block mb-2">Localized Advisory:</span>
-                  {insights || "Calibrating 4-node enclosure data..."}
+                <div className="bg-slate-50 rounded-2xl p-6 mb-8 border border-slate-100 italic text-sm text-slate-800 leading-relaxed shadow-inner">
+                  <span className="font-black text-blue-700 text-[10px] uppercase tracking-widest block mb-2">Confidence Insight:</span>
+                  {insights || "Calculating dynamic trust score..."}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mb-8">
@@ -177,7 +178,15 @@ const App: React.FC = () => {
                    </div>
                 </div>
 
-                {selectedLocation.verification && <div className="mb-8"><VerificationBadge data={selectedLocation.verification} /></div>}
+                {selectedLocation.verification && (
+                  <div className="mb-8">
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-3">
+                      Spatial Trust Analysis
+                      <div className="h-px flex-1 bg-slate-100" />
+                    </h3>
+                    <VerificationBadge data={selectedLocation.verification} />
+                  </div>
+                )}
 
                 <div>
                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-5">History (24H)</h3>
@@ -187,7 +196,7 @@ const App: React.FC = () => {
             </div>
           ) : (
             <div className="h-[400px] flex items-center justify-center p-12 bg-white rounded-3xl border-2 border-dashed border-slate-200 text-slate-400 font-bold text-center">
-              Select a node to verify.
+              Select a node to evaluate trust tiers.
             </div>
           )}
         </div>
